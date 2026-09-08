@@ -1,0 +1,15 @@
+{
+  "name": "Contador de Acciones",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "author": "SenyuDev",
+  "icon": "/icon.svg",
+  "description": "Contador de iniciativa y recursos (acción, bonus, reacción) para criaturas de la escena.",
+  "action": {
+    "title": "Better Initiative",
+    "icon": "/icon.svg",
+    "popover": "/",
+    "height": 600,
+    "width": 440
+  }
+}
