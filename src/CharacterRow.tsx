@@ -8,6 +8,7 @@ import MoreVert from "@mui/icons-material/MoreVert";
 import AddCircle from "@mui/icons-material/AddCircle";
 import AddComment from "@mui/icons-material/AddComment";
 import RecordVoiceOver from "@mui/icons-material/RecordVoiceOver";
+import OBR from "@owlbear-rodeo/sdk";
 import type { Image, Item } from "@owlbear-rodeo/sdk";
 import {
   allResourcesSpent,
@@ -77,18 +78,26 @@ export function CharacterRow({ item, data, active, onDelete }: Props) {
       )}
 
       <Box sx={{ minWidth: 0, flexShrink: 1 }}>
-        <Typography
-          noWrap
-          variant="body2"
-          sx={{
-            fontWeight: 600,
-            fontSize: "0.8125rem",
-            lineHeight: 1.3,
-            color: disabled ? "text.disabled" : "text.primary",
+        <Input
+          disableUnderline
+          fullWidth
+          inputProps={{
+            sx: {
+              fontWeight: 600,
+              fontSize: "0.8125rem",
+              lineHeight: 1.3,
+              py: 0,
+              color: disabled ? "text.disabled" : "text.primary",
+            },
           }}
-        >
-          {item.name}
-        </Typography>
+          value={item.name}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => {
+            OBR.scene.items.updateItems([item.id], (draft) => {
+              draft[0].name = e.target.value;
+            });
+          }}
+        />
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <Input
             disableUnderline

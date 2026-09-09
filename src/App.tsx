@@ -28,6 +28,7 @@ export function App() {
         display: "flex",
         flexDirection: "column",
         borderRadius: 0,
+        zoom: 0.9,
       }}
     >
       <InitiativeList />
