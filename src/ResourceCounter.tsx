@@ -11,11 +11,16 @@ interface Props {
   value: number;
   max: number;
   onClick: () => void;
+  compact?: boolean;
 }
 
-export function ResourceCounter({ label, icon, value, max, onClick }: Props) {
+export function ResourceCounter({ label, icon, value, max, onClick, compact = false }: Props) {
   const theme = useTheme();
   const spent = value <= 0;
+
+  const btnSize = compact ? 28 : 34;
+  const iconSize = compact ? 11 : 13;
+  const fontSize = compact ? 8 : 9;
 
   return (
     <Tooltip title={label} placement="top">
@@ -29,8 +34,8 @@ export function ResourceCounter({ label, icon, value, max, onClick }: Props) {
           alignItems: "center",
           justifyContent: "center",
           gap: 0.25,
-          width: 34,
-          height: 34,
+          width: btnSize,
+          height: btnSize,
           borderRadius: "6px",
           border: `1px solid ${
             spent
@@ -49,13 +54,13 @@ export function ResourceCounter({ label, icon, value, max, onClick }: Props) {
           },
         }}
       >
-        <Box sx={{ display: "flex", fontSize: 13, lineHeight: 1 }}>{icon}</Box>
+        <Box sx={{ display: "flex", fontSize: iconSize, lineHeight: 1 }}>{icon}</Box>
         <Typography
           className="counter-value"
           component="span"
           variant="caption"
           sx={{
-            fontSize: 9,
+            fontSize: fontSize,
             lineHeight: 1,
             fontWeight: 700,
             color: spent ? "text.disabled" : "inherit",

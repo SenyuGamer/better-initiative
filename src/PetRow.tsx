@@ -63,9 +63,9 @@ export function PetRow({ item, data, onDelete, onUnlink }: Props) {
         <Avatar
           src={image}
           sx={{
-            width: 24,
-            height: 24,
-            fontSize: 9,
+            width: 20,
+            height: 20,
+            fontSize: 8,
             fontWeight: 700,
             filter: disabled ? "grayscale(1)" : "none",
             opacity: disabled ? 0.4 : 1,
@@ -74,11 +74,11 @@ export function PetRow({ item, data, onDelete, onUnlink }: Props) {
         >
           <Avatar
             sx={{
-              width: 20,
-              height: 20,
+              width: 16,
+              height: 16,
               bgcolor: disabled ? "action.selected" : "primary.main",
               color: "background.paper",
-              fontSize: 9,
+              fontSize: 8,
               fontWeight: 700,
               opacity: disabled ? 0.4 : 1,
             }}
@@ -91,11 +91,11 @@ export function PetRow({ item, data, onDelete, onUnlink }: Props) {
     return (
       <Avatar
         sx={{
-          width: 24,
-          height: 24,
+          width: 20,
+          height: 20,
           bgcolor: disabled ? "action.selected" : "primary.main",
           color: "background.paper",
-          fontSize: 9,
+          fontSize: 8,
           fontWeight: 700,
           opacity: disabled ? 0.4 : 1,
         }}
@@ -110,9 +110,9 @@ export function PetRow({ item, data, onDelete, onUnlink }: Props) {
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: 0.75,
+        gap: 0.5,
         px: 0.75,
-        py: 0.5,
+        py: 0.25,
         ml: 3,
         borderLeft: `2px solid`,
         borderColor: teamColor,
@@ -135,7 +135,7 @@ export function PetRow({ item, data, onDelete, onUnlink }: Props) {
           inputProps={{
             sx: {
               fontWeight: 500,
-              fontSize: "0.8125rem",
+              fontSize: "0.75rem",
               lineHeight: 1.3,
               py: 0,
               color: disabled ? "text.disabled" : "text.primary",
@@ -158,6 +158,7 @@ export function PetRow({ item, data, onDelete, onUnlink }: Props) {
           value={data.action}
           max={data.maxAction}
           onClick={dec("action")}
+          compact
         />
         <ResourceCounter
           label="Bonus"
@@ -165,6 +166,7 @@ export function PetRow({ item, data, onDelete, onUnlink }: Props) {
           value={data.bonus}
           max={data.maxBonus}
           onClick={dec("bonus")}
+          compact
         />
         <ResourceCounter
           label="Reacción"
@@ -172,11 +174,12 @@ export function PetRow({ item, data, onDelete, onUnlink }: Props) {
           value={data.reaction}
           max={data.maxReaction}
           onClick={dec("reaction")}
+          compact
         />
       </Box>
 
-      <IconButton size="small" onClick={(e) => setMenu(e.currentTarget)}>
-        <MoreVert sx={{ fontSize: 18 }} />
+      <IconButton size="small" sx={{ p: 0.5 }} onClick={(e) => setMenu(e.currentTarget)}>
+        <MoreVert sx={{ fontSize: 16 }} />
       </IconButton>
 
       <Menu anchorEl={menu} open={Boolean(menu)} onClose={() => setMenu(null)}>
