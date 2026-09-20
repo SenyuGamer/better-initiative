@@ -54,7 +54,7 @@ export function ResourceCounter({ label, icon, value, max, onClick, compact = fa
           },
         }}
       >
-        <Box sx={{ display: "flex", fontSize: iconSize, lineHeight: 1 }}>{icon}</Box>
+        <Box sx={{ display: "flex", "& svg": { fontSize: iconSize }, lineHeight: 1 }}>{icon}</Box>
         <Typography
           className="counter-value"
           component="span"
