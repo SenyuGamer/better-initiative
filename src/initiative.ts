@@ -3,6 +3,13 @@ import type { Item } from "@owlbear-rodeo/sdk";
 import { getPluginId } from "./plugin/getPluginId";
 
 export type ResourceKey = "action" | "bonus" | "reaction";
+export type TeamKey = "ally" | "enemy" | "neutral";
+
+export const TEAM_COLORS: Record<TeamKey, string> = {
+  ally: "#4caf50",
+  enemy: "#f44336",
+  neutral: "#ff9800",
+};
 
 export interface InitiativeData {
   /** Initiative value (higher goes first) */
@@ -17,10 +24,23 @@ export interface InitiativeData {
   action: number;
   bonus: number;
   reaction: number;
+  /** Team tag for color coding */
+  team?: TeamKey;
+  /** Parent item ID — if set, this creature is a pet/minion */
+  parentId?: string;
+}
+
+/** Scene-level metadata (shared, not per-item) */
+export interface SceneData {
+  round: number;
 }
 
 export function getMetadataKey() {
   return getPluginId("metadata");
+}
+
+export function getSceneMetadataKey() {
+  return getPluginId("scene");
 }
 
 export function hasInitiative(item: Item): boolean {
@@ -105,5 +125,25 @@ export async function updateInitiative(
         item.metadata[getMetadataKey()] = update(current);
       }
     }
+  });
+}
+
+// ── Pet helpers ──────────────────────────────────────────
+
+export function isPet(data: InitiativeData): boolean {
+  return !!data.parentId;
+}
+
+// ── Round helpers ────────────────────────────────────────
+
+export async function getRound(): Promise<number> {
+  const meta = await OBR.scene.getMetadata();
+  const scene = meta[getSceneMetadataKey()] as SceneData | undefined;
+  return scene?.round ?? 1;
+}
+
+export async function setRound(round: number): Promise<void> {
+  await OBR.scene.setMetadata({
+    [getSceneMetadataKey()]: { round } as SceneData,
   });
 }

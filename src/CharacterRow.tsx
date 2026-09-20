@@ -8,6 +8,8 @@ import MoreVert from "@mui/icons-material/MoreVert";
 import AddCircle from "@mui/icons-material/AddCircle";
 import AddComment from "@mui/icons-material/AddComment";
 import RecordVoiceOver from "@mui/icons-material/RecordVoiceOver";
+import ExpandMore from "@mui/icons-material/ExpandMore";
+import ChevronRight from "@mui/icons-material/ChevronRight";
 import OBR from "@owlbear-rodeo/sdk";
 import type { Image, Item } from "@owlbear-rodeo/sdk";
 import {
@@ -15,7 +17,9 @@ import {
   decrementResource,
   updateInitiative,
   resetResources,
+  TEAM_COLORS,
   type InitiativeData,
+  type TeamKey,
 } from "./initiative";
 import { ResourceCounter } from "./ResourceCounter";
 import { DefaultAvatar } from "./DefaultAvatar";
@@ -27,17 +31,51 @@ interface Props {
   data: InitiativeData;
   active: boolean;
   onDelete: () => void;
+  /** Number of pets linked to this character */
+  petCount?: number;
+  /** Whether the pet list is expanded */
+  expanded?: boolean;
+  /** Toggle pet list expand/collapse */
+  onToggleExpand?: () => void;
+  /** Available parents for linking (for the menu) */
+  availableParents?: Array<{ id: string; name: string; imageUrl?: string }>;
+  /** Called when this character is linked to a parent as a pet */
+  onLink?: (parentId: string) => void;
 }
 
-export function CharacterRow({ item, data, active, onDelete }: Props) {
+export function CharacterRow({
+  item,
+  data,
+  active,
+  onDelete,
+  petCount = 0,
+  expanded = false,
+  onToggleExpand,
+  availableParents,
+  onLink,
+}: Props) {
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const [editing, setEditing] = useState(false);
 
   const disabled = allResourcesSpent(data);
   const image = (item as Image).image?.url;
+  const teamColor = data.team ? TEAM_COLORS[data.team] : undefined;
 
   const dec = (key: "action" | "bonus" | "reaction") => () => {
     decrementResource([item.id], key);
+  };
+
+  const focusCharacter = async () => {
+    await OBR.player.select([item.id]);
+    const bounds = await OBR.scene.items.getItemBounds([item.id]);
+    await OBR.viewport.animateToBounds(bounds);
+  };
+
+  const handleTeamChange = (team: TeamKey | undefined) => {
+    updateInitiative([item.id], (current) => ({
+      ...current,
+      team,
+    }));
   };
 
   return (
@@ -45,37 +83,63 @@ export function CharacterRow({ item, data, active, onDelete }: Props) {
       sx={{
         display: "flex",
         alignItems: "center",
-        gap: 1,
-        px: 1,
-        py: 0.75,
-        borderRadius: "8px",
+        gap: 0.75,
+        px: 0.75,
+        py: 0.5,
+        borderRadius: "6px",
         bgcolor: active ? "action.selected" : "transparent",
         border: active ? "1.5px solid" : "1px solid",
         borderColor: active ? "primary.main" : "transparent",
+        borderLeft: teamColor
+          ? `3px solid ${teamColor}`
+          : active
+          ? "1.5px solid"
+          : "1px solid",
+        borderLeftColor: teamColor ?? (active ? "primary.main" : "transparent"),
         transition: "background-color .2s, border-color .2s",
         "&:hover": {
           bgcolor: active ? "action.selected" : "action.hover",
         },
       }}
     >
-      {image ? (
-        <Avatar
-          src={image}
-          sx={{
-            width: 36,
-            height: 36,
-            fontSize: 14,
-            fontWeight: 700,
-            filter: disabled ? "grayscale(1)" : "none",
-            opacity: disabled ? 0.4 : 1,
-            backgroundColor: "action.selected",
-          }}
+      {/* Chevron for pets */}
+      {petCount > 0 && onToggleExpand ? (
+        <IconButton
+          size="small"
+          onClick={onToggleExpand}
+          sx={{ p: 0, mr: -0.5 }}
         >
+          {expanded ? (
+            <ExpandMore sx={{ fontSize: 16 }} />
+          ) : (
+            <ChevronRight sx={{ fontSize: 16 }} />
+          )}
+        </IconButton>
+      ) : null}
+
+      <Box
+        onClick={focusCharacter}
+        sx={{ cursor: "pointer", flexShrink: 0 }}
+      >
+        {image ? (
+          <Avatar
+            src={image}
+            sx={{
+              width: 30,
+              height: 30,
+              fontSize: 12,
+              fontWeight: 700,
+              filter: disabled ? "grayscale(1)" : "none",
+              opacity: disabled ? 0.4 : 1,
+              backgroundColor: "action.selected",
+            }}
+          >
+            <DefaultAvatar name={item.name} disabled={disabled} />
+          </Avatar>
+        ) : (
           <DefaultAvatar name={item.name} disabled={disabled} />
-        </Avatar>
-      ) : (
-        <DefaultAvatar name={item.name} disabled={disabled} />
-      )}
+        )}
+      </Box>
 
       <Box sx={{ minWidth: 0, flexShrink: 1 }}>
         <Input
@@ -163,6 +227,10 @@ export function CharacterRow({ item, data, active, onDelete }: Props) {
         onDelete={onDelete}
         onReset={() => updateInitiative([item.id], resetResources)}
         onEdit={() => setEditing(true)}
+        team={data.team}
+        onTeamChange={handleTeamChange}
+        availableParents={availableParents}
+        onLink={onLink}
       />
 
       <EditResourcesDialog

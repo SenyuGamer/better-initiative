@@ -1,65 +1,155 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Input from "@mui/material/Input";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import SkipNext from "@mui/icons-material/SkipNext";
 import Group from "@mui/icons-material/Group";
 import EmptyState from "@mui/icons-material/PriorityHigh";
 import OBR from "@owlbear-rodeo/sdk";
-import type { Item } from "@owlbear-rodeo/sdk";
+import type { Image, Item, Metadata } from "@owlbear-rodeo/sdk";
 import {
   getInitiative,
   getMetadataKey,
+  getSceneMetadataKey,
   hasInitiative,
+  isPet,
   resetResources,
+  updateInitiative,
+  getRound,
+  setRound,
+  type InitiativeData,
+  type SceneData,
 } from "./initiative";
 import { CharacterRow } from "./CharacterRow";
+import { PetRow } from "./PetRow";
 
 interface OrderedItem {
   item: Item;
-  data: ReturnType<typeof getInitiative>;
+  data: InitiativeData;
 }
 
 export function InitiativeList() {
   const [items, setItems] = useState<Item[]>([]);
+  const [round, setRoundState] = useState(1);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
+  // Subscribe to scene items
   useEffect(() => {
     const load = () => OBR.scene.items.getItems().then(setItems);
     load();
     return OBR.scene.items.onChange(setItems);
   }, []);
 
-  const ordered: OrderedItem[] = useMemo(() => {
+  // Subscribe to scene metadata (round)
+  useEffect(() => {
+    getRound().then(setRoundState);
+    return OBR.scene.onMetadataChange((meta: Metadata) => {
+      const scene = meta[getSceneMetadataKey()] as SceneData | undefined;
+      setRoundState(scene?.round ?? 1);
+    });
+  }, []);
+
+  // All items with initiative data
+  const allEntries: OrderedItem[] = useMemo(() => {
     return items
       .filter(hasInitiative)
-      .map((item) => ({ item, data: getInitiative(item) }))
-      .filter((entry): entry is OrderedItem => entry.data !== undefined)
-      .sort((a, b) => b.data!.initiative - a.data!.initiative);
+      .map((item) => ({ item, data: getInitiative(item)! }))
+      .filter((entry): entry is OrderedItem => entry.data !== undefined);
   }, [items]);
 
+  // Main characters (non-pets), sorted by initiative
+  const owners: OrderedItem[] = useMemo(() => {
+    return allEntries
+      .filter((e) => !isPet(e.data))
+      .sort((a, b) => b.data.initiative - a.data.initiative);
+  }, [allEntries]);
+
+  // Pets grouped by parentId
+  const petsByParent: Map<string, OrderedItem[]> = useMemo(() => {
+    const map = new Map<string, OrderedItem[]>();
+    for (const entry of allEntries) {
+      if (entry.data.parentId) {
+        const list = map.get(entry.data.parentId) ?? [];
+        list.push(entry);
+        map.set(entry.data.parentId, list);
+      }
+    }
+    return map;
+  }, [allEntries]);
+
   const activeIndex = useMemo(
-    () => ordered.findIndex((entry) => entry.data!.activeTurn),
-    [ordered]
+    () => owners.findIndex((entry) => entry.data.activeTurn),
+    [owners]
   );
 
-  const handleNextTurn = () => {
-    if (ordered.length === 0) return;
-    const nextIndex = (activeIndex + 1) % ordered.length;
-    const nextId = ordered[nextIndex].item.id;
+  // Auto-expand/collapse based on active turn
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    const activeOwnerId = owners[activeIndex].item.id;
+    setExpandedGroups((prev) => {
+      const next = new Set<string>();
+      // Keep manually expanded groups, plus auto-expand active
+      for (const id of prev) {
+        // Collapse groups whose turn has passed (not active)
+        if (id === activeOwnerId) {
+          next.add(id);
+        }
+      }
+      // Always expand the active owner if they have pets
+      if (petsByParent.has(activeOwnerId)) {
+        next.add(activeOwnerId);
+      }
+      return next;
+    });
+  }, [activeIndex, owners, petsByParent]);
 
-    OBR.scene.items.updateItems(ordered.map((e) => e.item.id), (draft) => {
-      for (const entry of ordered) {
-        const d = draft.find((it) => it.id === entry.item.id);
-        if (!d) continue;
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleNextTurn = () => {
+    if (owners.length === 0) return;
+    const nextIndex = (activeIndex + 1) % owners.length;
+    const nextId = owners[nextIndex].item.id;
+
+    // Auto-increment round when cycling back to first character
+    if (nextIndex === 0 && activeIndex >= 0) {
+      setRound(round + 1);
+    }
+
+    // Collect all IDs to update: owners + their pets (for reset)
+    const nextPets = petsByParent.get(nextId) ?? [];
+    const allIds = [
+      ...owners.map((e) => e.item.id),
+      ...nextPets.map((e) => e.item.id),
+    ];
+
+    OBR.scene.items.updateItems(allIds, (draft) => {
+      for (const d of draft) {
         const current = getInitiative(d);
         if (!current) continue;
+
         if (d.id === nextId) {
+          // Activate and reset owner
           d.metadata[getMetadataKey()] = {
             ...resetResources(current),
             activeTurn: true,
           };
+        } else if (nextPets.some((p) => p.item.id === d.id)) {
+          // Reset pets of the next active owner
+          d.metadata[getMetadataKey()] = resetResources(current);
         } else if (current.activeTurn) {
+          // Deactivate previous owner
           d.metadata[getMetadataKey()] = { ...current, activeTurn: false };
         }
       }
@@ -74,6 +164,35 @@ export function InitiativeList() {
     });
   };
 
+  const handleUnlink = (id: string) => {
+    updateInitiative([id], (current) => {
+      const { parentId: _, ...rest } = current;
+      return rest as InitiativeData;
+    });
+  };
+
+  const handleLink = (petId: string, parentId: string) => {
+    updateInitiative([petId], (current) => ({
+      ...current,
+      parentId,
+    }));
+  };
+
+  // Build available parents list for the "Vincular a..." dialog
+  const availableParents = useMemo(() => {
+    return owners.map((e) => ({
+      id: e.item.id,
+      name: e.item.name,
+      imageUrl: (e.item as Image).image?.url,
+    }));
+  }, [owners]);
+
+  const handleRoundChange = (value: string) => {
+    const parsed = parseInt(value, 10);
+    const newRound = Number.isNaN(parsed) || parsed < 1 ? 1 : parsed;
+    setRound(newRound);
+  };
+
   return (
     <Box
       sx={{
@@ -83,38 +202,69 @@ export function InitiativeList() {
         gap: 0.5,
       }}
     >
+      {/* Header */}
       <Box
         sx={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 1,
-          py: 0.75,
+          gap: 0.75,
+          py: 0.5,
           borderBottom: 1,
           borderColor: "divider",
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-          <Group color="primary" sx={{ fontSize: 20 }} />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Group color="primary" sx={{ fontSize: 18 }} />
           <Typography
             variant="h6"
-            sx={{ fontSize: "1.125rem", fontWeight: 700, lineHeight: "32px" }}
+            sx={{ fontSize: "0.975rem", fontWeight: 700, lineHeight: "28px" }}
           >
             Iniciativa
           </Typography>
+          {owners.length > 0 && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontSize: "0.75rem", whiteSpace: "nowrap" }}
+              >
+                · Ronda
+              </Typography>
+              <Input
+                disableUnderline
+                sx={{ width: 28 }}
+                inputProps={{
+                  sx: {
+                    fontSize: "0.75rem",
+                    fontWeight: 700,
+                    color: "text.secondary",
+                    textAlign: "center",
+                    py: 0,
+                    px: 0,
+                  },
+                }}
+                value={round}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => handleRoundChange(e.target.value)}
+              />
+            </Box>
+          )}
         </Box>
         <Button
           variant="contained"
           size="small"
           endIcon={<SkipNext sx={{ fontSize: 18 }} />}
-          disabled={ordered.length === 0}
+          disabled={owners.length === 0}
           onClick={handleNextTurn}
+          sx={{ whiteSpace: "nowrap", minWidth: "auto", px: 1.5 }}
         >
-          Siguiente turno
+          Siguiente
         </Button>
       </Box>
 
-      {ordered.length === 0 ? (
+      {/* List */}
+      {owners.length === 0 && allEntries.length === 0 ? (
         <Stack
           alignItems="center"
           justifyContent="center"
@@ -130,15 +280,42 @@ export function InitiativeList() {
         </Stack>
       ) : (
         <Stack spacing={0.5} sx={{ flex: 1, overflowY: "auto", pr: 0.25 }}>
-          {ordered.map((entry, index) => (
-            <CharacterRow
-              key={entry.item.id}
-              item={entry.item}
-              data={entry.data!}
-              active={index === activeIndex}
-              onDelete={() => handleDelete(entry.item.id)}
-            />
-          ))}
+          {owners.map((entry, index) => {
+            const pets = petsByParent.get(entry.item.id) ?? [];
+            const isExpanded = expandedGroups.has(entry.item.id);
+
+            return (
+              <Box key={entry.item.id}>
+                <CharacterRow
+                  item={entry.item}
+                  data={entry.data}
+                  active={index === activeIndex}
+                  onDelete={() => handleDelete(entry.item.id)}
+                  petCount={pets.length}
+                  expanded={isExpanded}
+                  onToggleExpand={
+                    pets.length > 0
+                      ? () => toggleExpand(entry.item.id)
+                      : undefined
+                  }
+                  availableParents={availableParents.filter(
+                    (p) => p.id !== entry.item.id
+                  )}
+                  onLink={(parentId) => handleLink(entry.item.id, parentId)}
+                />
+                {isExpanded &&
+                  pets.map((pet) => (
+                    <PetRow
+                      key={pet.item.id}
+                      item={pet.item}
+                      data={pet.data}
+                      onDelete={() => handleDelete(pet.item.id)}
+                      onUnlink={() => handleUnlink(pet.item.id)}
+                    />
+                  ))}
+              </Box>
+            );
+          })}
         </Stack>
       )}
     </Box>

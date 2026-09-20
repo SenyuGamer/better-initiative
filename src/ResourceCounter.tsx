@@ -29,9 +29,9 @@ export function ResourceCounter({ label, icon, value, max, onClick }: Props) {
           alignItems: "center",
           justifyContent: "center",
           gap: 0.25,
-          width: 42,
-          height: 42,
-          borderRadius: "8px",
+          width: 34,
+          height: 34,
+          borderRadius: "6px",
           border: `1px solid ${
             spent
               ? theme.palette.divider
@@ -41,7 +41,7 @@ export function ResourceCounter({ label, icon, value, max, onClick }: Props) {
             ? "action.disabledBackground"
             : "action.hover",
           color: spent ? "text.disabled" : "primary.main",
-          p: 0.5,
+          p: 0.25,
           "&:hover": {
             bgcolor: spent ? "action.disabledBackground" : "primary.main",
             color: "background.paper",
@@ -49,13 +49,13 @@ export function ResourceCounter({ label, icon, value, max, onClick }: Props) {
           },
         }}
       >
-        <Box sx={{ display: "flex", fontSize: 15, lineHeight: 1 }}>{icon}</Box>
+        <Box sx={{ display: "flex", fontSize: 13, lineHeight: 1 }}>{icon}</Box>
         <Typography
           className="counter-value"
           component="span"
           variant="caption"
           sx={{
-            fontSize: 10,
+            fontSize: 9,
             lineHeight: 1,
             fontWeight: 700,
             color: spent ? "text.disabled" : "inherit",

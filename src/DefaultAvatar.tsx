@@ -16,11 +16,11 @@ export function DefaultAvatar({ name, disabled }: Props) {
   return (
     <Avatar
       sx={{
-        width: 36,
-        height: 36,
+        width: 30,
+        height: 30,
         bgcolor: disabled ? "action.selected" : "primary.main",
         color: "background.paper",
-        fontSize: 13,
+        fontSize: 11,
         fontWeight: 700,
         opacity: disabled ? 0.4 : 1,
       }}
