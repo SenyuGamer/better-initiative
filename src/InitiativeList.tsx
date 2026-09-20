@@ -124,7 +124,11 @@ export function InitiativeList() {
 
     // Auto-increment round when cycling back to first character
     if (nextIndex === 0 && activeIndex >= 0) {
-      setRound(round + 1);
+      setRoundState((prev) => {
+        const nextRound = prev + 1;
+        setRound(nextRound);
+        return nextRound;
+      });
     }
 
     // Collect all IDs to update: owners + their pets (for reset)
@@ -189,7 +193,8 @@ export function InitiativeList() {
 
   const handleRoundChange = (value: string) => {
     const parsed = parseInt(value, 10);
-    const newRound = Number.isNaN(parsed) || parsed < 1 ? 1 : parsed;
+    const newRound = Number.isNaN(parsed) || parsed < 1 ? 1 : Math.floor(parsed);
+    setRoundState(newRound);
     setRound(newRound);
   };
 
@@ -232,6 +237,7 @@ export function InitiativeList() {
                 · Ronda
               </Typography>
               <Input
+                type="number"
                 disableUnderline
                 sx={{ width: 28 }}
                 inputProps={{
